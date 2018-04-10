@@ -18,4 +18,4 @@ TotalDailySteps <- sqldf::sqldf("SELECT ConvertedToDate, sum(steps) as 'SumOfSte
 #ggplot(TotalDailySteps,aes(x = TotalDailySteps$ConvertedToDate) +
  # stat_bin(binwidth=1, position="identity") + 
   #scale_x_date(breaks=date_breaks(width="1 month"))
-
+#hist(TotalDailySteps, breaks = "days")
