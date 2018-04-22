@@ -1,6 +1,4 @@
 #call in libraries
-
-
 library("sqldf")
 library("ggplot2")
 library("lubridate")
@@ -41,39 +39,57 @@ CountOf_MissingStepsDataRows <- sqldf::sqldf("SELECT count(ConvertedToDate)
              FROM MissingStepsDataRows
              ") #GROUP BY ConvertedToDate
 
-#create a new dataframe where the missing values are updated
-# with the average for the 5 minute interval
-
 #create copy of ActTbl to update
 UPDATED_ActTbl_missingAreIntervalAVG <- sqldf::sqldf("SELECT * FROM ActTbl")
-#20180421 1038 DWB - below failed with error: 
-#"Error in result_create(conn@ptr, statement) : near ".": syntax error"
-
-#moved away from this to try different methods...
-# sqldf::sqldf(c("UPDATE UPDATED_ActTbl_missingAreIntervalAVG 
-#              SET UPDATED_ActTbl_missingAreIntervalAVG.Interval = 
-# ((SELECT * FROM AverageStepsInInterval) as B) 
-#              WHERE UPDATED_ActTbl_missingAreIntervalAVG.Interval = B.Interval 
-#              AND UPDATED_ActTbl_missingAreIntervalAVG.steps IS NULL", 
-#              "SELECT * FROM main.UPDATED_ActTbl_missingAreIntervalAVG"), method = "raw")
-
-#20180421 1119 DWB accorfing to the following stack overflow 
-#SQLite may not be able to do inner join with updates:
-#https://stackoverflow.com/questions/19270259/update-with-join-in-sqlite
-
-#20180421 1045 DWB second attempt to replace NULL step values with 
-#the average in that interval
-#using no inner join in UPDATE
-#look to the post for an example that may work
 
 #test simple update
-UPDATED_ActTbl_missingAreIntervalAVG <- sqldf::sqldf(
-"UPDATE UPDATED_ActTbl_missingAreIntervalAVG  
-SET steps = 1 
-WHERE steps = 'NA'")
+UPDATED_ActTbl_missingAreIntervalAVG_r1 <- sqldf::sqldf(
+c(
+"UPDATE UPDATED_ActTbl_missingAreIntervalAVG   
+SET steps = 
+(SELECT AvgOfSteps 
+FROM AverageStepsInInterval 
+WHERE AverageStepsInInterval.interval 
+= UPDATED_ActTbl_missingAreIntervalAVG.interval) 
+WHERE steps IS NULL" , 
+  "SELECT * FROM  main.UPDATED_ActTbl_missingAreIntervalAVG"
+)
+)
+
+TotalDailySteps_r1 <- sqldf::sqldf("SELECT ConvertedToDate, sum(steps) as 'SumOfSteps' 
+             FROM UPDATED_ActTbl_missingAreIntervalAVG_r1
+             WHERE steps IS NOT NULL
+             GROUP BY ConvertedToDate")
+
+hist(TotalDailySteps_r1$SumOfSteps)
+mean(TotalDailySteps_r1$SumOfSteps)
+median(TotalDailySteps_r1$SumOfSteps)
 
 #Question #4: Activity different pattern wkdy vs. wknd
-
+weekdays <- c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
 #Close sqldf connection
 #sqldf()
+UPDATED_ActTbl_missingAreIntervalAVG_r1$WeekDayClassification <- factor(
+  (
+    weekdays(
+    TotalDailySteps_r1$ConvertedToDate
+    ) %in% weekdays), 
+  levels=c(FALSE, TRUE)
+  , labels=c('weekend', 'weekday')
+  )
 
+#weekday average of steps in interval
+AverageStepsInInterval_Weekday <- sqldf::sqldf(
+"SELECT interval, avg(steps) as 'AvgOfSteps' 
+            FROM UPDATED_ActTbl_missingAreIntervalAVG_r1
+            WHERE steps IS NOT NULL
+            AND WeekDayClassification = 'weekday' 
+            GROUP BY interval")
+
+#weekday average of steps in interval
+AverageStepsInInterval_Weekend <- sqldf::sqldf(
+  "SELECT interval, avg(steps) as 'AvgOfSteps' 
+            FROM UPDATED_ActTbl_missingAreIntervalAVG_r1
+            WHERE steps IS NOT NULL
+            AND WeekDayClassification = 'weekend' 
+            GROUP BY interval")
