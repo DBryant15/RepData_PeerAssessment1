@@ -1,22 +1,80 @@
-#call in libraries
+# Reproducible Research: Peer Assessment 1
+
+
+## Loading and preprocessing the data
+
+
+```r
 library("sqldf")
+```
+
+```
+## Loading required package: gsubfn
+```
+
+```
+## Loading required package: proto
+```
+
+```
+## Loading required package: RSQLite
+```
+
+```r
 library("ggplot2")
 library("lubridate")
-#load data
+```
+
+```
+## 
+## Attaching package: 'lubridate'
+```
+
+```
+## The following object is masked from 'package:base':
+## 
+##     date
+```
+
+```r
 ActTbl <- read.csv(unzip("activity.zip","activity.csv"), header = TRUE, stringsAsFactors = FALSE)
 ActTbl$ConvertedToDate <- ymd(ActTbl$date)
+```
 
-#Question1 - total steps per day
+## What is mean total number of steps taken per day?
+
+```r
 TotalDailySteps <- sqldf::sqldf("SELECT ConvertedToDate, sum(steps) as 'SumOfSteps' 
              FROM ActTbl
              WHERE steps IS NOT NULL
              GROUP BY ConvertedToDate")
 
 hist(TotalDailySteps$SumOfSteps)
-mean(TotalDailySteps$SumOfSteps)
-median(TotalDailySteps$SumOfSteps)
+```
 
-# Question 2 - Daily pattern
+![](PA1_template_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
+
+```r
+mean(TotalDailySteps$SumOfSteps)
+```
+
+```
+## [1] 10766.19
+```
+
+```r
+median(TotalDailySteps$SumOfSteps)
+```
+
+```
+## [1] 10765
+```
+
+
+## What is the average daily activity pattern?
+
+
+```r
 AverageStepsInInterval <- sqldf::sqldf("SELECT interval, avg(steps) as 'AvgOfSteps' 
             FROM ActTbl
             WHERE steps IS NOT NULL
@@ -24,8 +82,13 @@ AverageStepsInInterval <- sqldf::sqldf("SELECT interval, avg(steps) as 'AvgOfSte
 
 dailyAvg_MaxSteps <- sqldf::sqldf("SELECT interval, max(AvgOfSteps) as 'MaxOfSteps' 
             FROM AverageStepsInInterval")
+```
 
-# Question 3 - Inputting missing values
+
+## Imputing missing values
+
+
+```r
 MissingStepsDataRows <- sqldf::sqldf("SELECT * 
              FROM ActTbl
              WHERE steps IS NULL
@@ -51,17 +114,45 @@ WHERE steps IS NULL" ,
   "SELECT * FROM  main.UPDATED_ActTbl_missingAreIntervalAVG"
 )
 )
+```
 
+```
+## Warning in rsqlite_fetch(res@ptr, n = n): Don't need to call dbFetch() for
+## statements, only for queries
+```
+
+```r
 TotalDailySteps_r1 <- sqldf::sqldf("SELECT ConvertedToDate, sum(steps) as 'SumOfSteps' 
              FROM UPDATED_ActTbl_missingAreIntervalAVG_r1
              WHERE steps IS NOT NULL
              GROUP BY ConvertedToDate")
 
 hist(TotalDailySteps_r1$SumOfSteps)
-mean(TotalDailySteps_r1$SumOfSteps)
-median(TotalDailySteps_r1$SumOfSteps)
+```
 
-#Question #4: Activity different pattern wkdy vs. wknd
+![](PA1_template_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
+
+```r
+mean(TotalDailySteps_r1$SumOfSteps)
+```
+
+```
+## [1] 10749.77
+```
+
+```r
+median(TotalDailySteps_r1$SumOfSteps)
+```
+
+```
+## [1] 10641
+```
+
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+
+```r
 weekdays <- c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
 
 UPDATED_ActTbl_missingAreIntervalAVG_r1$WeekDayClassification <- factor(
@@ -105,3 +196,6 @@ plot(AverageStepsInInterval_Weekend$interval,
      xlab = "interval",
      main = 'weekend') 
 lines(AverageStepsInInterval_Weekend$interval, AverageStepsInInterval_Weekend$AvgOfSteps)
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
